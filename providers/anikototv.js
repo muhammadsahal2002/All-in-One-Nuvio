@@ -14,21 +14,15 @@ const CONFIG = {
     BASE_URL: "https://anikototv.to",
     TMDB_API_KEY: "439c478a771f35c05022f9feabcca01c",
     TMDB_BASE: "https://api.themoviedb.org/3",
-    USER_AGENT: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+    USER_AGENT: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     TIMEOUT: 30000
 };
-
-// ============================================
-// HTTP Helpers
-// ============================================
 
 function getHeaders(extra = {}) {
     return {
         "User-Agent": CONFIG.USER_AGENT,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.5",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
         ...extra
     };
 }
@@ -38,7 +32,7 @@ function getAjaxHeaders(referer) {
         "User-Agent": CONFIG.USER_AGENT,
         "X-Requested-With": "XMLHttpRequest",
         "Accept": "application/json, text/javascript, */*; q=0.01",
-        "Referer": referer,
+        "Referer": referer || CONFIG.BASE_URL,
         "Accept-Language": "en-US,en;q=0.5"
     };
 }
@@ -94,7 +88,7 @@ function jsonResultUrl(jsonText) {
 // ============================================
 
 function getTMDBDetails(id, mediaType, season, episode) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         try {
             const type = (mediaType === "tv" || mediaType === "series") ? "tv" : "movie";
             let url = `${CONFIG.TMDB_BASE}/${type}/${id}?api_key=${CONFIG.TMDB_API_KEY}&language=en-US`;
@@ -104,10 +98,7 @@ function getTMDBDetails(id, mediaType, season, episode) {
             }
             
             fetchWithTimeout(url)
-                .then(response => {
-                    if (!response.ok) return resolve(null);
-                    return response.json();
-                })
+                .then(response => response.ok ? response.json() : null)
                 .then(data => {
                     if (!data) return resolve(null);
                     
@@ -128,10 +119,7 @@ function getTMDBDetails(id, mediaType, season, episode) {
                     if (type === "tv" && result.id && season && episode) {
                         const epUrl = `${CONFIG.TMDB_BASE}/tv/${result.id}/season/${season}/episode/${episode}?api_key=${CONFIG.TMDB_API_KEY}`;
                         fetchWithTimeout(epUrl)
-                            .then(epResponse => {
-                                if (epResponse.ok) return epResponse.json();
-                                return null;
-                            })
+                            .then(epResponse => epResponse.ok ? epResponse.json() : null)
                             .then(epData => {
                                 if (epData) {
                                     if (epData.name) epTitle = epData.name;
@@ -167,10 +155,7 @@ function extractMegaPlay(url, referer, domain, subtitleCallback, callback) {
             const baseUrl = `https://${domain}`;
             
             fetchWithTimeout(url, { headers })
-                .then(response => {
-                    if (!response.ok) return resolve(false);
-                    return response.text();
-                })
+                .then(response => response.ok ? response.text() : null)
                 .then(html => {
                     if (!html) return resolve(false);
                     
@@ -183,16 +168,13 @@ function extractMegaPlay(url, referer, domain, subtitleCallback, callback) {
                                 ? iframeMatch[1] 
                                 : `https://${domain}${iframeMatch[1]}`;
                             fetchWithTimeout(iframeUrl, { headers })
-                                .then(iframeResponse => {
-                                    if (iframeResponse.ok) return iframeResponse.text();
-                                    return null;
-                                })
+                                .then(iframeResponse => iframeResponse.ok ? iframeResponse.text() : null)
                                 .then(iframeHtml => {
                                     if (iframeHtml) {
                                         dataIdMatch = iframeHtml.match(/data-id="(\d+)"/);
                                     }
                                     if (!dataIdMatch) return resolve(false);
-                                    return fetchSources(dataIdMatch[1], baseUrl, url, domain, referer, subtitleCallback, callback, resolve);
+                                    fetchSources(dataIdMatch[1], baseUrl, url, domain, referer, subtitleCallback, callback, resolve);
                                 })
                                 .catch(() => resolve(false));
                             return;
@@ -214,10 +196,7 @@ function fetchSources(dataId, baseUrl, url, domain, referer, subtitleCallback, c
     fetchWithTimeout(sourcesUrl, {
         headers: { ...getAjaxHeaders(url), "Referer": url }
     })
-        .then(response => {
-            if (!response.ok) return resolve(false);
-            return response.json();
-        })
+        .then(response => response.ok ? response.json() : null)
         .then(sourcesData => {
             if (!sourcesData) return resolve(false);
             
@@ -246,10 +225,7 @@ function fetchSources(dataId, baseUrl, url, domain, referer, subtitleCallback, c
             
             let quality = "1080p";
             fetchWithTimeout(videoUrl, { headers: { "Referer": `${baseUrl}/` } })
-                .then(m3u8Response => {
-                    if (m3u8Response.ok) return m3u8Response.text();
-                    return null;
-                })
+                .then(m3u8Response => m3u8Response.ok ? m3u8Response.text() : null)
                 .then(m3u8 => {
                     if (m3u8) {
                         const resMatch = m3u8.match(/RESOLUTION=\d+x(\d+)/);
@@ -285,10 +261,7 @@ function getEpisodes(animeId, referer) {
         try {
             const url = `${CONFIG.BASE_URL}/ajax/episode/list/${animeId}`;
             fetchWithTimeout(url, { headers: getAjaxHeaders(referer) })
-                .then(response => {
-                    if (!response.ok) return resolve([]);
-                    return response.text();
-                })
+                .then(response => response.ok ? response.text() : null)
                 .then(jsonText => {
                     const html = jsonResultString(jsonText);
                     if (!html) return resolve([]);
@@ -361,10 +334,7 @@ function resolveEpisode(data, subtitleCallback, callback) {
             
             const serverListUrl = `${CONFIG.BASE_URL}/ajax/server/list?servers=${serverIds}`;
             fetchWithTimeout(serverListUrl, { headers: getAjaxHeaders(referer) })
-                .then(response => {
-                    if (!response.ok) return resolve(false);
-                    return response.text();
-                })
+                .then(response => response.ok ? response.text() : null)
                 .then(serverJson => {
                     const serverHtml = jsonResultString(serverJson);
                     if (!serverHtml) return resolve(false);
@@ -372,24 +342,22 @@ function resolveEpisode(data, subtitleCallback, callback) {
                     const $ = cheerio.load(serverHtml);
                     let linkIds = [];
                     
+                    // Try to find type-specific servers first
                     const typeSelector = audioType === "dub" ? 'div.type[data-type="dub"]' : 'div.type[data-type="sub"], div.type[data-type="hsub"]';
                     const typeEl = $(typeSelector);
-                    const serverSection = typeEl.length ? typeEl.html() : serverHtml;
                     
-                    const $section = cheerio.load(serverSection || serverHtml);
-                    $section("li[data-link-id]").each((i, el) => {
-                        const linkId = $(el).attr("data-link-id");
-                        if (linkId && !linkIds.includes(linkId)) {
-                            linkIds.push(linkId);
-                        }
-                    });
+                    if (typeEl.length) {
+                        typeEl.find("li[data-link-id]").each((i, el) => {
+                            const linkId = $(el).attr("data-link-id");
+                            if (linkId && !linkIds.includes(linkId)) linkIds.push(linkId);
+                        });
+                    }
                     
+                    // If no type-specific servers, get all
                     if (linkIds.length === 0) {
                         $("li[data-link-id]").each((i, el) => {
                             const linkId = $(el).attr("data-link-id");
-                            if (linkId && !linkIds.includes(linkId)) {
-                                linkIds.push(linkId);
-                            }
+                            if (linkId && !linkIds.includes(linkId)) linkIds.push(linkId);
                         });
                     }
                     
@@ -401,14 +369,7 @@ function resolveEpisode(data, subtitleCallback, callback) {
                     for (const linkId of linkIds) {
                         const serverUrl = `${CONFIG.BASE_URL}/ajax/server?get=${linkId}`;
                         fetchWithTimeout(serverUrl, { headers: getAjaxHeaders(referer) })
-                            .then(sResponse => {
-                                if (!sResponse.ok) {
-                                    processed++;
-                                    if (processed >= linkIds.length && !found) resolve(false);
-                                    return;
-                                }
-                                return sResponse.text();
-                            })
+                            .then(sResponse => sResponse.ok ? sResponse.text() : null)
                             .then(sJson => {
                                 if (!sJson) {
                                     processed++;
@@ -456,9 +417,6 @@ function resolveEpisode(data, subtitleCallback, callback) {
                                 if (processed >= linkIds.length && !found) resolve(false);
                             });
                     }
-                    
-                    // If no linkIds were processed
-                    if (linkIds.length === 0) resolve(false);
                 })
                 .catch(() => resolve(false));
         } catch (error) {
@@ -471,11 +429,10 @@ function resolveFromWatchPage(episodeUrl, subtitleCallback, callback) {
     return new Promise((resolve) => {
         try {
             fetchWithTimeout(episodeUrl, { headers: getHeaders() })
-                .then(response => {
-                    if (!response.ok) return resolve(false);
-                    return response.text();
-                })
+                .then(response => response.ok ? response.text() : null)
                 .then(html => {
+                    if (!html) return resolve(false);
+                    
                     const idMatch = html.match(/data-id="(\d+)"/);
                     if (!idMatch) return resolve(false);
                     
@@ -507,50 +464,138 @@ function resolveFromWatchPage(episodeUrl, subtitleCallback, callback) {
     });
 }
 
+// ============================================
+// Search - UPDATED with better selectors
+// ============================================
+
 function searchAnime(query) {
     return new Promise((resolve) => {
         try {
             const url = `${CONFIG.BASE_URL}/filter?keyword=${encodeURIComponent(query)}`;
+            console.log(`[AnikotoTV] Searching: ${url}`);
+            
             fetchWithTimeout(url, { headers: getHeaders() })
                 .then(response => {
+                    console.log(`[AnikotoTV] Search response: ${response.status}`);
                     if (!response.ok) return resolve([]);
                     return response.text();
                 })
                 .then(html => {
+                    if (!html) {
+                        console.log('[AnikotoTV] Empty HTML response');
+                        return resolve([]);
+                    }
+                    
+                    console.log(`[AnikotoTV] HTML length: ${html.length}`);
+                    
                     const $ = cheerio.load(html);
                     const results = [];
                     
-                    $("div.item, div.flw-item").each((i, el) => {
+                    // Try multiple selectors
+                    let items = [];
+                    
+                    // Try common selectors
+                    const selectors = [
+                        'div.item',
+                        'div.flw-item',
+                        '.item',
+                        '.flw-item',
+                        'div[class*="item"]',
+                        'article',
+                        'li[class*="item"]'
+                    ];
+                    
+                    for (const selector of selectors) {
+                        const found = $(selector);
+                        if (found.length > 0) {
+                            items = found;
+                            console.log(`[AnikotoTV] Found ${items.length} items with selector: ${selector}`);
+                            break;
+                        }
+                    }
+                    
+                    // If no items found, try to find any link to /watch/
+                    if (items.length === 0) {
+                        console.log('[AnikotoTV] No items found, trying links...');
+                        const links = $('a[href*="/watch/"]');
+                        console.log(`[AnikotoTV] Found ${links.length} watch links`);
+                        
+                        // Create items from links
+                        links.each((i, el) => {
+                            const $el = $(el);
+                            const href = $el.attr('href');
+                            const text = $el.text().trim();
+                            
+                            if (href && text) {
+                                // Find parent container
+                                let parent = $el.parent();
+                                for (let j = 0; j < 3; j++) {
+                                    if (parent.hasClass('item') || parent.hasClass('flw-item') || parent.attr('class')?.includes('item')) {
+                                        break;
+                                    }
+                                    parent = parent.parent();
+                                }
+                                
+                                results.push({
+                                    title: text,
+                                    url: href.startsWith('http') ? href : `${CONFIG.BASE_URL}${href}`,
+                                    posterUrl: null,
+                                    type: 'tv',
+                                    hasDub: false,
+                                    hasSub: true
+                                });
+                            }
+                        });
+                        
+                        resolve(results);
+                        return;
+                    }
+                    
+                    // Parse items
+                    items.each((i, el) => {
                         const $el = $(el);
-                        let titleEl = $el.find("a.d-title, a[title], a[href*='/watch/']").first();
-                        if (!titleEl.length) return;
                         
-                        const href = titleEl.attr("href");
-                        const title = titleEl.text().trim();
+                        // Find title and link
+                        let titleEl = $el.find('a.d-title, a[title], a[href*="/watch/"]').first();
+                        if (!titleEl.length) {
+                            titleEl = $el.find('a').filter((i2, el2) => {
+                                const href = $(el2).attr('href');
+                                return href && href.includes('/watch/');
+                            }).first();
+                        }
                         
-                        if (!href || !title) return;
+                        if (!titleEl.length) {
+                            // Try any link with text
+                            titleEl = $el.find('a').first();
+                            if (!titleEl.length || !titleEl.text().trim()) return;
+                        }
                         
-                        const cleanHref = href.replace(/\/ep-\d+$/, "");
-                        const fullUrl = cleanHref.startsWith("http") ? cleanHref : `${CONFIG.BASE_URL}${cleanHref}`;
+                        const href = titleEl.attr('href');
+                        const title = titleEl.text().trim() || 'Unknown';
                         
+                        if (!href) return;
+                        
+                        const fullUrl = href.startsWith('http') ? href : `${CONFIG.BASE_URL}${href}`;
+                        
+                        // Find poster
                         let poster = null;
-                        const posterEl = $el.find("div.poster img, img");
+                        const posterEl = $el.find('img[data-src], img[src]').first();
                         if (posterEl.length) {
-                            poster = posterEl.attr("data-src") || posterEl.attr("src");
-                            if (poster && poster.startsWith("//")) poster = "https:" + poster;
-                            if (poster && poster.startsWith("/")) poster = CONFIG.BASE_URL + poster;
+                            poster = posterEl.attr('data-src') || posterEl.attr('src');
+                            if (poster && poster.startsWith('//')) poster = 'https:' + poster;
+                            if (poster && poster.startsWith('/')) poster = CONFIG.BASE_URL + poster;
                         }
                         
-                        let type = "tv";
-                        const typeEl = $el.find(".fd-infor .tick-item.tick-type, .item-type, .tick-type, .type");
-                        if (typeEl.length && typeEl.text().toLowerCase().includes("movie")) {
-                            type = "movie";
+                        // Determine type
+                        let type = 'tv';
+                        const typeText = $el.text().toLowerCase();
+                        if (typeText.includes('movie') || typeText.includes('film')) {
+                            type = 'movie';
                         }
                         
-                        const hasDub = $el.find(".dub, i.dub, .fa-microphone").length > 0 || 
-                                       $el.text().toLowerCase().includes("dub");
-                        const hasSub = $el.find(".sub, i.sub, .fa-closed-captioning").length > 0 ||
-                                       $el.text().toLowerCase().includes("sub");
+                        // Check dub/sub
+                        const hasDub = typeText.includes('dub');
+                        const hasSub = typeText.includes('sub') || !hasDub;
                         
                         results.push({
                             title: title,
@@ -562,10 +607,15 @@ function searchAnime(query) {
                         });
                     });
                     
+                    console.log(`[AnikotoTV] Found ${results.length} results`);
                     resolve(results);
                 })
-                .catch(() => resolve([]));
+                .catch(error => {
+                    console.error('[AnikotoTV] Search error:', error.message);
+                    resolve([]);
+                });
         } catch (error) {
+            console.error('[AnikotoTV] Search error:', error.message);
             resolve([]);
         }
     });
@@ -581,7 +631,6 @@ function getStreams(tmdbId, mediaType, season, episode) {
             const log = (msg) => console.log(`[AnikotoTV] ${msg}`);
             log(`Fetching: ${tmdbId} (${mediaType}) S${season || "?"}E${episode || "?"}`);
             
-            // Step 1: Resolve TMDB ID to title
             let searchTitle = String(tmdbId);
             
             getTMDBDetails(tmdbId, mediaType, season, episode)
@@ -590,8 +639,6 @@ function getStreams(tmdbId, mediaType, season, episode) {
                         searchTitle = tmdbInfo.title;
                         log(`TMDB resolved: ${searchTitle}`);
                     }
-                    
-                    // Step 2: Search AnikotoTV
                     return searchAnime(searchTitle);
                 })
                 .then(searchResults => {
@@ -600,7 +647,6 @@ function getStreams(tmdbId, mediaType, season, episode) {
                         return resolve([]);
                     }
                     
-                    // Step 3: Find best match
                     let bestMatch = searchResults[0];
                     const queryLower = searchTitle.toLowerCase();
                     for (const result of searchResults) {
@@ -615,7 +661,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
                     }
                     log(`Best match: ${bestMatch.title}`);
                     
-                    // Step 4: Load anime details
+                    // Load anime details
                     return loadAnime(bestMatch.url);
                 })
                 .then(details => {
@@ -624,7 +670,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
                         return resolve([]);
                     }
                     
-                    // Step 5: Find target episode
+                    // Find target episode
                     let targetEpisode = null;
                     if (mediaType === "movie") {
                         if (details.episodes && details.episodes.length > 0) {
@@ -661,13 +707,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
                     
                     log(`Target episode: ${targetEpisode.name} (${targetEpisode.type})`);
                     
-                    // Step 6: Resolve to streams
                     const streams = [];
-                    let found = false;
-                    
-                    const subtitleCallback = (subtitle) => {
-                        // Subtitles handled if needed
-                    };
                     
                     const callback = (link) => {
                         const stream = {
@@ -678,10 +718,9 @@ function getStreams(tmdbId, mediaType, season, episode) {
                             headers: link.headers || {}
                         };
                         streams.push(stream);
-                        found = true;
                     };
                     
-                    resolveEpisode(targetEpisode.url, subtitleCallback, callback)
+                    resolveEpisode(targetEpisode.url, null, callback)
                         .then(() => {
                             if (streams.length === 0) {
                                 log("No streams found");
@@ -707,16 +746,15 @@ function loadAnime(url) {
     return new Promise((resolve) => {
         try {
             fetchWithTimeout(url, { headers: getHeaders() })
-                .then(response => {
-                    if (!response.ok) return resolve(null);
-                    return response.text();
-                })
+                .then(response => response.ok ? response.text() : null)
                 .then(html => {
+                    if (!html) return resolve(null);
+                    
                     const $ = cheerio.load(html);
                     
                     let title = $("h1.title, h1[itemprop=name]").first().text().trim();
                     if (!title) {
-                        title = $("h1.title").first().text().trim();
+                        title = $("h1").first().text().trim();
                     }
                     if (!title) return resolve(null);
                     
@@ -802,9 +840,5 @@ function loadAnime(url) {
         }
     });
 }
-
-// ============================================
-// Nuvio Export
-// ============================================
 
 module.exports = { getStreams };
