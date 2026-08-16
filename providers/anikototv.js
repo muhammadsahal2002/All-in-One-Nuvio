@@ -11,7 +11,7 @@ const cheerio = require("cheerio-without-node-native");
 // ============================================
 
 const CONFIG = {
-    BASE_URL: "https://anikototv.to",
+    BASE_URL: "https://anikototv.cz",
     TMDB_API_KEY: "439c478a771f35c05022f9feabcca01c",
     TMDB_BASE: "https://api.themoviedb.org/3",
     USER_AGENT: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
