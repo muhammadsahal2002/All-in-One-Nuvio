@@ -1,7 +1,7 @@
+
 /**
  * hianime - Built from src/hianime/
  * Generated: 2026-06-01T14:20:20.767Z
- * Modified: DUB only
  */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -35,6 +35,10 @@ var __copyProps = (to, from, except, desc) => {
   return to;
 };
 var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
@@ -93,7 +97,7 @@ function fetchJson(_0) {
 function getImdbId(tmdbId, mediaType) {
   return __async(this, null, function* () {
     try {
-      const url = `https://api.themoviedb.org/3/\( {mediaType === "tv" ? "tv" : "movie"}/ \){tmdbId}/external_ids?api_key=${TMDB_API_KEY}`;
+      const url = `https://api.themoviedb.org/3/${mediaType === "tv" ? "tv" : "movie"}/${tmdbId}/external_ids?api_key=${TMDB_API_KEY}`;
       const data = yield fetchJson(url);
       return data.imdb_id || null;
     } catch (e) {
@@ -104,7 +108,7 @@ function getImdbId(tmdbId, mediaType) {
 function getTmdbShowTitle(tmdbId, mediaType) {
   return __async(this, null, function* () {
     try {
-      const url = `https://api.themoviedb.org/3/\( {mediaType === "tv" ? "tv" : "movie"}/ \){tmdbId}?api_key=${TMDB_API_KEY}`;
+      const url = `https://api.themoviedb.org/3/${mediaType === "tv" ? "tv" : "movie"}/${tmdbId}?api_key=${TMDB_API_KEY}`;
       const data = yield fetchJson(url);
       return data.name || data.title || data.original_title || null;
     } catch (e) {
@@ -115,7 +119,7 @@ function getTmdbShowTitle(tmdbId, mediaType) {
 function resolveMapping(imdbId, season, episode) {
   return __async(this, null, function* () {
     try {
-      const url = `https://id-mapping-api-malid.hf.space/api/resolve?id=\( {imdbId}&s= \){season}&e=${episode}`;
+      const url = `https://id-mapping-api-malid.hf.space/api/resolve?id=${imdbId}&s=${season}&e=${episode}`;
       const data = yield fetchJson(url);
       if (data.error)
         return null;
@@ -129,7 +133,7 @@ function searchMalId(title, mediaType) {
   return __async(this, null, function* () {
     try {
       const type = mediaType === "movie" ? "movie" : "tv";
-      const url = `https://api.jikan.moe/v4/anime?q=\( {encodeURIComponent(title)}&type= \){type}&limit=1`;
+      const url = `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(title)}&type=${type}&limit=1`;
       const data = yield fetchJson(url);
       if (data.data && data.data.length > 0) {
         return data.data[0].mal_id;
@@ -156,10 +160,10 @@ function extractSources(apiUrl, referer, origin, serverName, animeTitle, episode
       const file = (_a = json.sources) == null ? void 0 : _a.file;
       if (!file)
         return [];
-      const streamTitle = `${animeTitle} - Episode \( {episodeNum} ( \){type.toUpperCase()})`;
+      const streamTitle = `${animeTitle} - Episode ${episodeNum} (${type.toUpperCase()})`;
       const streams = [];
       streams.push({
-        name: `HiAnime [\( {serverName}] ( \){type.toUpperCase()})`,
+        name: `HiAnime [${serverName}] (${type.toUpperCase()})`,
         title: streamTitle,
         url: file,
         quality: "Auto",
@@ -187,34 +191,34 @@ function extractSources(apiUrl, referer, origin, serverName, animeTitle, episode
 function scrapeType(malId, episode, type, animeTitle) {
   return __async(this, null, function* () {
     const streams = [];
-    const megaUrl = `\( {MEGAPLAY_BASE}/stream/mal/ \){malId}/\( {episode}/ \){type}`;
+    const megaUrl = `${MEGAPLAY_BASE}/stream/mal/${malId}/${episode}/${type}`;
     try {
       const html = yield fetchText(megaUrl, {
         headers: { "Referer": megaUrl }
       });
       const $ = import_cheerio_without_node_native.default.load(html);
-      const player = $("div.form-area#megaplay-player");
+      const player = $("div.fix-area#megaplay-player");
       if (!player.length)
         return [];
       const dataId = player.attr("data-id");
       const realId = player.attr("data-realid");
       const extractions = [];
       if (dataId) {
-        const apiUrl = `\( {MEGAPLAY_BASE}/stream/getSources?id= \){dataId}&id=${dataId}`;
+        const apiUrl = `${MEGAPLAY_BASE}/stream/getSources?id=${dataId}&id=${dataId}`;
         extractions.push(
           extractSources(apiUrl, megaUrl, MEGAPLAY_BASE, "MegaPlay", animeTitle, episode, type)
         );
       }
       if (realId) {
-        const vidPage = `\( {VIDWISH_BASE}/stream/s-2/ \){realId}/${type}`;
+        const vidPage = `${VIDWISH_BASE}/stream/s-2/${realId}/${type}`;
         extractions.push((() => __async(this, null, function* () {
           try {
             const vidHtml = yield fetchText(vidPage, { headers: { "Referer": megaUrl } });
             const $v = import_cheerio_without_node_native.default.load(vidHtml);
-            const vPlayer = $v("div.form-area#megaplay-player");
+            const vPlayer = $v("div.fix-area#megaplay-player");
             const vDataId = vPlayer.attr("data-id");
             if (vDataId) {
-              const apiUrl = `\( {VIDWISH_BASE}/stream/getSources?id= \){vDataId}&id=${vDataId}`;
+              const apiUrl = `${VIDWISH_BASE}/stream/getSources?id=${vDataId}&id=${vDataId}`;
               return yield extractSources(apiUrl, vidPage, VIDWISH_BASE, "Vidwish", animeTitle, episode, type);
             }
           } catch (err) {
@@ -223,15 +227,15 @@ function scrapeType(malId, episode, type, animeTitle) {
         }))());
       }
       if (realId) {
-        const megacloudPage = `\( {MEGACLOUD_BASE}/stream/s-3/ \){realId}/${type}`;
+        const megacloudPage = `${MEGACLOUD_BASE}/stream/s-3/${realId}/${type}`;
         extractions.push((() => __async(this, null, function* () {
           try {
             const mcHtml = yield fetchText(megacloudPage, { headers: { "Referer": megaUrl } });
             const $m = import_cheerio_without_node_native.default.load(mcHtml);
-            const mPlayer = $m("div.form-area#megaplay-player");
+            const mPlayer = $m("div.fix-area#megaplay-player");
             const mDataId = mPlayer.attr("data-id");
             if (mDataId) {
-              const apiUrl = `\( {MEGACLOUD_BASE}/stream/getSources?id= \){mDataId}&id=${mDataId}`;
+              const apiUrl = `${MEGACLOUD_BASE}/stream/getSources?id=${mDataId}&id=${mDataId}`;
               return yield extractSources(apiUrl, megacloudPage, MEGACLOUD_BASE, "MegaCloud", animeTitle, episode, type);
             }
           } catch (err) {
@@ -255,11 +259,13 @@ function onSettings() {
       {
         type: "select",
         key: "subDub",
-        label: "Audio Preference",
+        label: "Audio/Subtitle Preference",
         options: [
+          { label: "Sub & Dub", value: "both" },
+          { label: "Sub Only", value: "sub" },
           { label: "Dub Only", value: "dub" }
         ],
-        defaultValue: "dub"
+        defaultValue: "both"
       }
     ];
   });
@@ -289,10 +295,18 @@ function getStreams(tmdbId, mediaType = "tv", season = 1, episode = 1) {
       }
       if (!malId)
         return [];
-
-      // DUB ONLY
-      const allStreams = yield scrapeType(malId, mappedEp, "dub", showTitle);
-
+      const settings = globalThis.SCRAPER_SETTINGS || {};
+      const preference = settings.subDub || "both";
+      let allStreams = [];
+      if (preference === "both") {
+        const [subStreams, dubStreams] = yield Promise.all([
+          scrapeType(malId, mappedEp, "sub", showTitle),
+          scrapeType(malId, mappedEp, "dub", showTitle)
+        ]);
+        allStreams = [...subStreams, ...dubStreams];
+      } else {
+        allStreams = yield scrapeType(malId, mappedEp, preference, showTitle);
+      }
       const seen = /* @__PURE__ */ new Set();
       return allStreams.filter((s2) => {
         if (seen.has(s2.url))
